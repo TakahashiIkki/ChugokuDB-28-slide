@@ -1,0 +1,72 @@
+Postgresql12 リリースノート
+
+---
+
+Postgresql12の話 さわださん
+https://www.slideshare.net/masahikosawada98/postgresql-12
+
+https://h50146.www5.hpe.com/products/software/oe/linux/mainstream/support/lcc/pdf/PostgreSQL_12_GA_New_Features_ja_20191011-1.pdf
+
+---
+
+- recovery.conf の設定が postgresql.conf に統合
+
+テーブル・パーティショニング
+- パーティショニングテーブルを参照する外部キーに対応
+- パーティショニングテーブルに対するCopyの速度が改善
+- パーティションの境界に任意の式を記述出来るように
+
+パーティショニングツリーの可視化 pg_partition_tree()の追加
+
+https://qiita.com/U_ikki/items/e05a063de6a991c84841#4-%E3%83%91%E3%83%BC%E3%83%86%E3%82%A3%E3%82%B7%E3%83%A7%E3%83%8B%E3%83%B3%E3%82%B0%E3%83%84%E3%83%AA%E3%83%BC%E3%81%AE%E5%8F%AF%E8%A6%96%E5%8C%96-pg_partition_tree%E3%81%AE%E8%BF%BD%E5%8A%A0
+
+---
+
+CTEを外部の問い合わせにインライン化出来るようになった。
+
+SERIALIZABLE で パラレルクエリが使用可能に。
+
+各項目の進捗が表示出来るように
+- create index 
+- REINDEX
+- VACUME FULL 
+
+---
+
+スタンバイをプライマリに昇格させる pg_promote() 関数が追加
+
+=> https://qiita.com/U_ikki/items/e05a063de6a991c84841
+
+---
+
+生成列がサポート
+
+---
+
+JSON PATH
+
+https://qiita.com/nuko_yokohama/items/a945151b3d9ce8995336
+
+---
+
+COPY 分に WHERE句が追加
+
+https://qiita.com/mimitaro/items/e728532c5ce77cf59778
+
+---
+
+COMMIT AND CHAIN が追加
+
+---
+
+pg_dump
+
+ -rows-per-insert
+ -on-conflict-do-nothing
+
+https://qiita.com/nuko_yokohama/items/82b9960dba3dee830b09
+
+---
+
+独自のテーブル (Access Method) を定義、使用できるようになった。
+
