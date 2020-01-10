@@ -176,6 +176,22 @@ chugokudb=# SELECT * FROM member;
 
 ---
 
+# 生成列
+
+- Insertは不可.
+
+```sql
+chugokudb=# INSERT INTO member (first_name, last_name, full_name) 
+chugokudb-# VALUES ('高橋', '一騎', '高橋 一騎');
+ERROR:  cannot insert into column "full_name"
+DETAIL:  Column "full_name" is a generated column.
+```
+
+- DB2 => 値を渡せばその値、
+ 渡さなかったら生成列 みたいな奴もある.
+
+---
+
 # [fit] 「お、やった！ これで誕生日から年齢を常に計算出来るやん！」
 
 ---
@@ -212,3 +228,31 @@ SELECTの度に計算してくれる仕組みも他のRDBMSにある
 
 ---
 
+# 生成列のサポート
+
+**何が嬉しいか**
+- データとしては 苗字、名前 は分けて持ちたいけど
+ 参照としては 苗字+名前で使いたい。
+- MySQLで 疑似Check制約として使うTipsがあった。
+
+```sql
+CREATE TABLE users
+(
+ id SERIAL NOT NULL CONSTRAINT users_pkey PRIMARY KEY,
+ gender integer NOT NULL,
+ gender_text NOT NULL VARCHAR(2) GENERATED ALWAYS AS
+  (CASE WHEN (gender = 0) then '男性' WHEN (gender = 1) then '女性' ELSE NULL END) STORED
+);
+```
+
+---
+
+# JSON PATH のサポート
+
+---
+
+# JSON PATH のサポート
+
+
+
+---
