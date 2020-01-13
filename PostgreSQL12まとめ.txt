@@ -47,6 +47,9 @@ JSON PATH
 
 https://qiita.com/nuko_yokohama/items/a945151b3d9ce8995336
 
+https://www.depesz.com/2019/03/19/waiting-for-postgresql-12-partial-implementation-of-sql-json-path-language/
+https://blog.sql-workbench.eu/post/json-path/
+
 ---
 
 COPY 分に WHERE句が追加
