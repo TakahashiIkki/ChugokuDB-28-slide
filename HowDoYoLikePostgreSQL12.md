@@ -132,7 +132,7 @@ Ingresが元となっている。
 - 生成列のサポート
 - JSON PATH のサポート
 - pg_dumpの強化
-- テーブル・パーティショニングが更に強化
+- パーティション・テーブルの強化
 - Access Method
 
 ---
@@ -569,13 +569,171 @@ INSERT INTO public.option_user VALUES
 
 --- 
 
+[.autoscale: true]
+
 # pg_dumpの強化
 
 - バックアップの時に BulkInsertに対応出来るようになった.
+  - 当然、通常のInsertよりBulkInsertの方が速い。
+  - 使いどきがあまり浮かんでない。。
+- 毎日常にバックアップをテストサーバーに復元するみたいなユースケースで
+Insert文を加工してデータマスクする、みたいなそういう感じ？
+  - 速度がボトルネックとか思ってたらこれを使用すると多少色々できる。
+  - 後、`ON CONFLICT DO NOTHING` をつけることで予めデータを絞らなくても良いみたな乱暴な事もできないこともない。
+  ※ 今回のバージョンアップで COPY文にWHERE句つける事ができるように・・
+
+--- 
+
+# パーティション・テーブルの強化
+
+---
+[.autoscale: true]
+
+# パーティション・テーブルの強化
+
+- パーティション・キーの値を固定値だけでなく
+計算した値も指定可能に
+- 外部キーの参照先としてパーティション・テーブルを指定可能に
+- 関数でパーティション・テーブルのツリー構造を表示可能に
+
+---
+
+[.autoscale: true]
+# パーティション・テーブルの歩み
+
+**PostgreSQL10**
+
+- ネイティブ・パーティショニングがサポート開始
+
+**PostgreSQL11**
+
+- 親テーブルにインデックスを設定すると子テーブルにも生成される
+- どの条件にも合致しないデータを
+保存するデフォルトパーティションをサポート
+- ハッシュパーティションをサポート
+
+---
+
+# パーティション・テーブルの歩み
+
+PostgreSQL9.6まで。。。
+超頑張って パーティショニングを実現していた。
+
+---
+
+# PostgreSQL9.6までのパーティショニング
+
+- 親テーブルを定義
+
+```sql
+CREATE TABLE japan (
+  pref VARCHAR(10),
+  city VARCHAR(25)
+);
+```
+
+- 子テーブルを定義
+
+```sql
+CREATE TABLE okayama (CHECK (pref IN ('岡山'))) INHERITS (japan);
+CREATE TABLE hiroshima (CHECK (pref IN ('広島'))) INHERITS (japan);
+```
+
+---
+
+[.autoscale: true]
+
+# PostgreSQL9.6までのパーティショニング
+
+- トリガーを定義
+
+```sql
+CREATE OR REPLACE FUNCTION pref_partion() RETURNS TRIGGER AS $$
+BEGIN
+
+IF ( NEW.pref = '岡山') THEN
+  INSERT INTO okayama VALUES (NEW.*);
+ELSIF ( NEW.pref = '広島') THEN
+  INSERT INTO hiroshima VALUES (NEW.*);
+ELSE
+  RAISE EXCEPTION 'ERROR';
+END IF;
+
+RETURN NULL;
+END;
+$$
+LANGUAGE plpgsql;
+```
+
+---
+
+[.autoscale: true]
+
+# PostgreSQL9.6までのパーティショニング
+
+- 親テーブルに反映
+
+```sql
+CREATE TRIGGER japan_pref_insert_trigger
+BEFORE INSERT ON japan 
+FOR EACH ROW EXECUTE PROCEDURE pref_partion();
+```
+
+---
+
+# PostgreSQL9.6までのパーティショニング
+
+**従来の方法のデメリット**
+
+- トリガー定義面倒臭い
+- 子テーブルが増えるとトリガーのアップデートが必要
+- 遅い
+
+---
+
+# ネイティブ・パーティショニング
+
+```sql
+CREATE TABLE japan (
+  pref VARCHAR(10),
+  city VARCHAR(25)
+) PARTITION BY LIST (pref);
+
+CREATE TABLE okayama PARTITION OF japan
+FOR VALUES IN ('岡山');
+
+CREATE TABLE hiroshima PARTITION OF japan
+FOR VALUES IN ('広島');
+```
+
+---
+
+# ネイティブ・パーティショニング
+
+**メリット**
+
+- トリガーのメンテナンスが不要
+- 子テーブルの追加もDDL文で完結する
+- 振り分けのルールに重複があったらエラーになる
+- 速い（従来の10倍とか)
+
+---
+
+# ネイティブ・パーティショニングが速い理由
+
+- パーティション・プルーニング
+
+```sql
+SELECT * FROM japan WHERE pref = '岡山';
+```
+子テーブルの パーティションキーの条件を確認して 
+`okayama` テーブルからのみ検索する
+=> 無駄の無い検索が可能になった
+
+---
 
 
-
-
+# Access Method
 
 
 --- 
