@@ -591,7 +591,7 @@ Insert文を加工してデータマスクする、みたいなそういう感�
 
 # パーティション・テーブルの強化
 
-- パーティション・キーの値を固定値だけでなく
+- パーティション・キーのFOR VALUES句で固定値だけでなく
 計算した値も指定可能に
 - 外部キーの参照先としてパーティション・テーブルを指定可能に
 - 関数でパーティション・テーブルのツリー構造を表示可能に
@@ -626,17 +626,18 @@ PostgreSQL9.6まで。。。
 - 親テーブルを定義
 
 ```sql
-CREATE TABLE japan (
+CREATE TABLE japan_cities (
   pref VARCHAR(10),
-  city VARCHAR(25)
+  city VARCHAR(25),
+  UNIQUE(pref, city)
 );
 ```
 
 - 子テーブルを定義
 
 ```sql
-CREATE TABLE okayama (CHECK (pref IN ('岡山'))) INHERITS (japan);
-CREATE TABLE hiroshima (CHECK (pref IN ('広島'))) INHERITS (japan);
+CREATE TABLE okayama_cities (CHECK (pref IN ('岡山'))) INHERITS (japan_cities);
+CREATE TABLE hiroshima_cities (CHECK (pref IN ('広島'))) INHERITS (japan_cities);
 ```
 
 ---
@@ -652,9 +653,9 @@ CREATE OR REPLACE FUNCTION pref_partion() RETURNS TRIGGER AS $$
 BEGIN
 
 IF ( NEW.pref = '岡山') THEN
-  INSERT INTO okayama VALUES (NEW.*);
+  INSERT INTO okayama_cities VALUES (NEW.*);
 ELSIF ( NEW.pref = '広島') THEN
-  INSERT INTO hiroshima VALUES (NEW.*);
+  INSERT INTO hiroshima_cities VALUES (NEW.*);
 ELSE
   RAISE EXCEPTION 'ERROR';
 END IF;
@@ -675,7 +676,7 @@ LANGUAGE plpgsql;
 
 ```sql
 CREATE TRIGGER japan_pref_insert_trigger
-BEFORE INSERT ON japan 
+BEFORE INSERT ON japan_cities 
 FOR EACH ROW EXECUTE PROCEDURE pref_partion();
 ```
 
@@ -688,21 +689,23 @@ FOR EACH ROW EXECUTE PROCEDURE pref_partion();
 - トリガー定義面倒臭い
 - 子テーブルが増えるとトリガーのアップデートが必要
 - 遅い
+- ORMと相性が悪い
 
 ---
 
 # ネイティブ・パーティショニング
 
 ```sql
-CREATE TABLE japan (
+CREATE TABLE japan_cities (
   pref VARCHAR(10),
-  city VARCHAR(25)
+  city VARCHAR(25),
+  UNIQUE(pref, city)
 ) PARTITION BY LIST (pref);
 
-CREATE TABLE okayama PARTITION OF japan
+CREATE TABLE okayama_cities PARTITION OF japan_cities
 FOR VALUES IN ('岡山');
 
-CREATE TABLE hiroshima PARTITION OF japan
+CREATE TABLE hiroshima_cities PARTITION OF japan_cities
 FOR VALUES IN ('広島');
 ```
 
@@ -724,24 +727,233 @@ FOR VALUES IN ('広島');
 - パーティション・プルーニング
 
 ```sql
-SELECT * FROM japan WHERE pref = '岡山';
+SELECT * FROM japan_cities WHERE pref = '岡山';
 ```
-子テーブルの パーティションキーの条件を確認して 
-`okayama` テーブルからのみ検索する
+実行計画は子テーブルの パーティションキーの条件を確認して 
+`okayama_cities` テーブルを対象に検索する
 => 無駄の無い検索が可能になった
+ORMはあくまで `japan_cities` に対してクエリを投げ
+DB側の責務で分散みたいな事も可能
+
+---
+
+# [fit]PostgreSQL12でのパーティション・テーブルの新機能
+
+- パーティション・キーのFOR VALUES句で固定値だけでなく
+計算した値も指定可能に
+- 外部キーの参照先としてパーティション・テーブルを指定可能に
+- 関数でパーティション・テーブルのツリー構造を表示可能に
+
+---
+
+# パーティション・テーブルの強化
+
+- パーティション・キーのFOR VALUES句で固定値だけでなく
+計算した値も指定可能に
+
+```sql
+CREATE TABLE sale (
+    id integer not null, sale_data date not null
+) PARTITION BY RANGE (sale_data);
+
+CREATE TABLE sale_1 PARTITION OF sale
+FOR VALUES FROM (CURRENT_DATE::timestamp) TO (CURRENT_DATE::timestamp + '1 year');
+
+CREATE TABLE sale_2 PARTITION OF sale
+FOR VALUES FROM (CURRENT_DATE::timestamp  + '1 year') TO (CURRENT_DATE::timestamp + '2 year');
+```
+
+※ これまでは syntax error だった。
+
+---
+
+# パーティション・テーブルの強化
+
+```sql
+CREATE TABLE sale_1 PARTITION OF sale
+FOR VALUES FROM (CURRENT_DATE::timestamp) TO (CURRENT_DATE::timestamp + '1 year');
+```
+
+`CURRENT_DATE::timestamp` だと都度パーティションキーが変わるのでは 🤔？
+
+---
+
+# パーティション・テーブルの強化
+
+`FOR VALUES` に指定した関数などの値は CREATE TABLE時に一度だけ評価され、テーブル定義に実行結果が保存される。
+
+```
+\d+ test_sale
+                            Partitioned table "public.test_sale"
+  Column   |  Type   | Collation | Nullable | Default | Storage | Stats target | Description 
+-----------+---------+-----------+----------+---------+---------+--------------+-------------
+ id        | integer |           | not null |         | plain   |              | 
+ sale_data | date    |           | not null |         | plain   |              | 
+Partition key: RANGE (sale_data)
+Partitions: test_sale_1 FOR VALUES FROM ('2020-01-19') TO ('2021-01-19'),
+            test_sale_2 FOR VALUES FROM ('2021-01-19') TO ('2022-01-19')
+```
+
+---
+
+# パーティション・テーブルの強化
+
+- 外部キーの参照先としてパーティション・テーブルを指定可に
+
+```sql
+CREATE TABLE users (
+    id integer not null primary key
+) PARTITION BY RANGE (id);
+
+CREATE TABLE users_1 PARTITION OF users FOR VALUES FROM (1) TO (100000);
+
+CREATE TABLE users_2 PARTITION OF users FOR VALUES FROM (100001) TO (200000);
+
+CREATE TABLE user1_profile (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INTEGER references users_1 (id)
+    deferrable initially deferred,
+  name VARCHAR(25) NOT NULL
+);
+```
+
+---
+
+# パーティション・テーブルの強化
+
+```
+# SELECT * FROM users;
+   id   
+--------
+     50
+ 190100
+
+# INSERT INTO user1_profile (user_id, name) VALUES (50, 'ユーザー50');
+INSERT 0 1
+
+# INSERT INTO user1_profile (user_id, name) VALUES (190100, 'ユーザー190100');
+
+ERROR:  insert or update on table "user1_profile" 
+violates foreign key constraint "user1_profile_user_id_fkey"
+
+```
+
+---
+
+# パーティション・テーブルの強化
+
+- これも使い所はよく考えてやる必要がある
+- 某氏の著書 **第９章 強すぎる制約** （まだ上司だからね）にもあるように 多用すると パーティション・テーブルの良い所を○してしまう。
+
+---
+
+# パーティション・テーブルの強化
+
+![inline](partiotion.png)
+
+---
+
+# パーティション・テーブルの強化
+
+- `¥dP` で パーティション・テーブルがリスト化
+
+```
+# \dP
+                          List of partitioned relations
+ Schema |            Name            | Owner  |       Type        |    Table     
+--------+----------------------------+--------+-------------------+--------------
+ public | japan_cities               | docker | partitioned table | 
+ public | test_sale                  | docker | partitioned table | 
+ public | users                      | docker | partitioned table | 
+ public | japan_cities_pref_city_key | docker | partitioned index | japan_cities
+ public | users_pkey                 | docker | partitioned index | users
+```
 
 ---
 
 
+# パーティション・テーブルの強化
+
+- `pg_partition_tree` で パーティション・テーブルの階層を可視化
+
+```
+# SELECT * FROM pg_partition_tree('japan_cities');
+
+      relid       | parentrelid  | isleaf | level 
+------------------+--------------+--------+-------
+ japan_cities     |              | f      |     0
+ okayama_cities   | japan_cities | t      |     1
+ hiroshima_cities | japan_cities | t      |     1
+
+```
+
+---
+
 # Access Method
 
+---
+
+[.autoscale: true]
+
+# Access Method
+
+これは今後の進化の為の布石..!
+
+- `Pluggable Table Storage Interface` 
+- 独自のストレージエンジン（Access Method) を定義できるようになった
+  - 現在はデフォルト（従来）のHeapのみ
+  - MySQL でいうMyISAMとInnoDBみたいなもの
+- Vacuumがいらないストレージエンジンとか.
+  - PG13以降で実装予定との事らしい
+
+---
+
+# Access Method
+
+テーブルに対してストレージエンジンを指定できるようになった。
+
+```sql
+CREATE TABLE test_table (
+  id integer,
+  name varchar(25)
+) USING heap;
+```
+
+同様に `Materialized View` でも指定できる
+
+```sql
+CREATE MATERIALIZED VIEW test_view USING heap AS SELECT * FROM test_table;
+```
+
+---
+
+# Access Method
+
+![inline](sample.001.jpeg)
+
+---
+
+# Access Method
+
+![fit inline](before_storage.png)
+
+---
+
+# Access Method
+
+![fit inline](after_storage.png)
 
 --- 
+
+[.autoscale: true]
 
 # 参考文献
 
 - [https://github.com/json-path/JsonPath](https://github.com/json-path/JsonPath)
 - [https://www.postgresql.jp/document/11/html/app-pgdump.html](https://www.postgresql.jp/document/11/html/app-pgdump.html)
 - [https://qiita.com/nuko_yokohama/items/82b9960dba3dee830b09](https://qiita.com/nuko_yokohama/items/82b9960dba3dee830b09)
+- [https://h50146.www5.hpe.com/products/software/oe/linux/mainstream/support/lcc/pdf/PostgreSQL_12_GA_New_Features_ja_20191011-1.pdf](https://h50146.www5.hpe.com/products/software/oe/linux/mainstream/support/lcc/pdf/PostgreSQL_12_GA_New_Features_ja_20191011-1.pdf)
+- [https://www.sraoss.co.jp/tech-blog/wp-content/uploads/2019/10/pg12_report_1004.pdf](https://www.sraoss.co.jp/tech-blog/wp-content/uploads/2019/10/pg12_report_1004.pdf)
+- [https://anarazel.de/talks/2019-05-30-pgcon-pluggable-table-storage/pluggable.pdf](https://anarazel.de/talks/2019-05-30-pgcon-pluggable-table-storage/pluggable.pdf)
 
 ---
