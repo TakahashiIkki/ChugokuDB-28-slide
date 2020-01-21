@@ -22,6 +22,7 @@ slidenumbers: true
 2. PostgreSQLとは
 3. PostgreSQL12の新機能
 4. PostgreSQL13に期待される機能
+5. まとめ
 
 ---
 
@@ -943,6 +944,152 @@ CREATE MATERIALIZED VIEW test_view USING heap AS SELECT * FROM test_table;
 
 ![fit inline](after_storage.png)
 
+---
+
+# 4. PostgreSQL13に期待される機能
+
+---
+
+# 4. PostgreSQL13に期待される機能
+
+- DROP DATABASE db_name WITH (FORCE) のサポート
+- スロークエリログの抑制機能
+- \set PROMPT2 '%w' のサポート
+- Incremental Materialized View (CF中)
+
+---
+
+# DROP DATABASE db_name WITH (FORCE) のサポート
+
+---
+
+# DROP DATABASE db_name WITH (FORCE) のサポート
+
+- `DROP DATABASE db_name` とする事で PostgreSQLにおける database をドロップする事ができる.
+  - ただし、この構文は active なセッションがあるとDropできなかった
+- `DROP DATABASE db_name WITH (FORCE)` とする事で問答無用で消せる
+
+---
+
+# スロークエリログの抑制機能
+
+---
+
+# スロークエリログの抑制機能
+
+- スロークエリで遅いクエリがある事を調べるのは大事。
+  - 反面、ログが肥大化したり可読性が低下したりなりがち。
+- 「スロークエリの内、Xミリ秒超えたクエリを一部ログに記録する」みたいな事が可能
+
+---
+
+# \set PROMPT2 '%w' のサポート
+
+---
+
+[.autoscale: true]
+
+# \set PROMPT2 '%w' のサポート
+
+- 普段はこんな感じ
+
+```
+chugokudb=# SELECT *
+chugokudb-#   FROM member;
+```
+
+- これまではこんなのはサポートあった。
+
+```
+chugokudb=# \set PROMPT2 ''
+chugokudb=# SELECT *
+FROM member;
+```
+
+- こういう感じになる
+
+```
+chugokudb=# \set PROMPT2 '%w'
+chugokudb=# SELECT *
+              FROM member;
+```
+
+---
+
+# Incremental Materialized View
+
+---
+
+# Incremental Materialized View
+
+- まだ入るかどうか決まってない
+- Materialized View の差分更新ができるようにする機能
+
+---
+
+# 4. PostgreSQL13に期待される機能
+
+- 次のリリースは 2020年 10〜12月頃。
+
+---
+
+# 5. まとめ
+
+---
+
+"いかがでしたでしょうか"
+
+- PostgreSQL12のリリースノートをご紹介しました
+  - **新機能** っていう目玉なものってあんまり無い印象
+  - 主に元々あった機能のパワーアップ
+- PostgreSQL13やそれ以降のバージョンアップに期待！！
+  - Incremental Materialized View
+  - Pluggable Table Storage Interface の対応
+
+---
+
+# 5. まとめ
+
+- PostgreSQLの最新を追うのがきつい
+- 元々あった機能を知るのがきつい
+- ぜひともコミュニティを活用してください！
+
+---
+
+# 告知
+
+- 中国地方DB勉強会はスタッフを募集しております！
+
+---
+
+# 告知
+
+- オープンセミナー2020@広島
+- 2020年02月08日(土)
+- [https://osh.connpass.com/event/146828/](https://osh.connpass.com/event/146828/)
+
+![fit right](osh2020.png)
+
+---
+
+# 告知
+
+- Okayama-js 2020/02 Ionicもくもく会
+- 2020年02月15日(土)
+- [https://okayama-js.connpass.com/event/161703/](https://okayama-js.connpass.com/event/161703/)
+
+![fit right](okayama-js.png)
+
+---
+
+# 告知
+
+- 岡山 Ruby, Ruby on Rails勉強会
+- 2020年02月29日(土)
+- [https://okaruby.connpass.com/event/161062/](https://okaruby.connpass.com/event/161062/)
+
+![fit right](ruby_ruby_on_rails.png)
+
 --- 
 
 [.autoscale: true]
@@ -955,5 +1102,9 @@ CREATE MATERIALIZED VIEW test_view USING heap AS SELECT * FROM test_table;
 - [https://h50146.www5.hpe.com/products/software/oe/linux/mainstream/support/lcc/pdf/PostgreSQL_12_GA_New_Features_ja_20191011-1.pdf](https://h50146.www5.hpe.com/products/software/oe/linux/mainstream/support/lcc/pdf/PostgreSQL_12_GA_New_Features_ja_20191011-1.pdf)
 - [https://www.sraoss.co.jp/tech-blog/wp-content/uploads/2019/10/pg12_report_1004.pdf](https://www.sraoss.co.jp/tech-blog/wp-content/uploads/2019/10/pg12_report_1004.pdf)
 - [https://anarazel.de/talks/2019-05-30-pgcon-pluggable-table-storage/pluggable.pdf](https://anarazel.de/talks/2019-05-30-pgcon-pluggable-table-storage/pluggable.pdf)
+- [https://qiita.com/mimitaro/items/40bbdd89fef05374fa89](https://qiita.com/mimitaro/items/40bbdd89fef05374fa89)
+
 
 ---
+
+# ご清聴ありがとうございました
